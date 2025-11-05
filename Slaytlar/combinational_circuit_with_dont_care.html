@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Öğrenciye Özel Mantık Fonksiyonu (Farketmezli)</title>
+    
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; background-color: #f0f2f5; }
+        .container { max-width: 800px; margin: 50px auto; padding: 30px; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1 { color: #004085; text-align: center; margin-bottom: 25px; }
+        .input-group { text-align: center; margin-bottom: 30px; }
+        .input-group label { font-size: 1.1em; font-weight: bold; margin-right: 15px; }
+        .input-group input { padding: 10px; border: 2px solid #ced4da; border-radius: 5px; width: 200px; font-size: 1em; text-align: center; }
+        .result-box { border: 2px solid #007bff; border-radius: 5px; padding: 20px; text-align: center; min-height: 80px; margin-top: 20px; }
+        .result-box p { margin: 0; font-size: 1.2em; font-weight: bold; }
+        
+        /* Tek formül gösterimi için */
+        .formula-display { font-size: 1.5em; color: #dc3545; flex-shrink: 0; margin-top: 10px; }
+        
+        .error-message { color: #d9534f; font-weight: bold; margin-top: 10px; min-height: 20px; }
+        .karno-placeholder { margin-top: 30px; padding-top: 20px; border-top: 1px dashed #ccc; }
+        .karno-placeholder h2 { text-align: center; color: #333; }
+        .karno-placeholder p { color: #007bff; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Bileşik Mantık Devresi</h1>
+    
+    <div class="input-group">
+        <label for="ogrenciNoInput">Öğrenci Numarası:</label>
+        <input type="number" id="ogrenciNoInput" placeholder="Örn: 24330127" oninput="calculateProblem()">
+    </div>
+
+    <div class="error-message" id="errorMessage"></div>
+
+    <div class="result-box">
+        <p>Mantık Fonksiyonu F(A, B, C, D):</p>
+        
+        <div class="formula-display" id="formulaOutput">
+             $$F = \text{Numaranızı Giriniz...}$$
+        </div>
+    </div>
+</div>
+
+<script>
+
+    let seed_prng_state = 0;
+    
+    function seededPRNG() {
+
+        seed_prng_state |= 0; 
+        
+        seed_prng_state ^= (seed_prng_state << 13);
+        seed_prng_state ^= (seed_prng_state >> 17);
+        seed_prng_state ^= (seed_prng_state << 5);
+        
+        return (seed_prng_state >>> 0) / 0x100000000; 
+    }
+
+    function calculateProblem() {
+        const ogrenciNoInput = document.getElementById('ogrenciNoInput');
+        const ogrenciNo = ogrenciNoInput.value.trim();
+        const formulaOutput = document.getElementById('formulaOutput');
+        const errorMessage = document.getElementById('errorMessage');
+
+        errorMessage.textContent = '';
+        
+        const formatRegex = /^\d{8}$/; 
+        const isFormatValid = formatRegex.test(ogrenciNo) && ogrenciNo.substring(2, 5) === '330';
+
+        if (!ogrenciNo || ogrenciNo.length === 0) {
+            formulaOutput.innerHTML = '$$F = \\text{Numaranızı Giriniz...}$$';
+            if (window.MathJax) MathJax.typesetPromise([formulaOutput]);
+            return;
+        }
+
+        if (!isFormatValid) {
+            errorMessage.textContent = 'HATA: Öğrenci Numarası formatı yanlış. Lütfen 8 haneli numaranızı kontrol edin.';
+            formulaOutput.innerHTML = '$$F = \\text{Format Hatası!}$$';
+            if (window.MathJax) MathJax.typesetPromise([formulaOutput]);
+            return;
+        }
+
+        const siraNoStr = ogrenciNo.slice(-3);
+        const S = parseInt(siraNoStr, 10); 
+        const Y = parseInt(ogrenciNo.charAt(0), 10); 
+        
+        const K = (S % 5) + 4; 
+
+        const D = (Y % 3) + 2; 
+    
+        seed_prng_state = S; 
+
+        let allTerms = Array.from({ length: 16 }, (_, i) => i);
+        
+        for (let i = allTerms.length - 1; i > 0; i--) {
+            const j = Math.floor(seededPRNG() * (i + 1));
+            [allTerms[i], allTerms[j]] = [allTerms[j], allTerms[i]];
+        }
+
+        const primaryTerms = new Set(allTerms.slice(0, K));
+        const remainingTerms = allTerms.slice(K); 
+        const selectedDontCares = new Set(remainingTerms.slice(0, D)); // d
+        
+        const sortedPrimaryTermsList = Array.from(primaryTerms).sort((a, b) => a - b).join(', ');
+        const sortedDontCareList = Array.from(selectedDontCares).sort((a, b) => a - b).join(', ');
+
+        let finalFormulaText;
+        let operatorText;
+        let dOperatorText;
+        let connectorText;
+
+        if (S % 2 === 0) {
+            operatorText = '\\sum m';
+            dOperatorText = '\\sum d'; // SOP için d'ler Toplam (Σ) olarak gösterilir.
+            connectorText = '+'; 
+        } else {
+            operatorText = '\\prod M';
+            dOperatorText = '\\prod d'; // POS için d'ler Çarpım (Π) olarak gösterilir.
+            connectorText = '\\cdot'; 
+        }
+
+        finalFormulaText = `$$F(A, B, C, D) = ${operatorText} (${sortedPrimaryTermsList}) ${connectorText} ${dOperatorText} (${sortedDontCareList})$$`;
+
+        formulaOutput.innerHTML = finalFormulaText;
+        
+        if (window.MathJax) {
+            MathJax.typesetPromise([formulaOutput]);
+        }
+    }
+    
+    window.addEventListener('load', () => {
+        if (window.MathJax) {
+            MathJax.typeset();
+        }
+    });
+
+</script>
+
+</body>
+</html>
